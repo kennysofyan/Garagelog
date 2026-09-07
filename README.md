@@ -1,14 +1,5 @@
-# GarageLog iOS V1
+# GarageLog iOS V2
 
-An iPhone-first, installable Progressive Web App.
+V2 adds automatic maintenance due calculations, editable maintenance intervals, due-soon/overdue status, vehicle cost summary, multi-car management, fuel analytics, local storage, backup/import, and PWA support.
 
-## Install on iPhone
-1. Put this folder on a web host (GitHub Pages, Netlify, Vercel, or your own hosting).
-2. Open the hosted page in Safari.
-3. Tap **Share → Add to Home Screen**.
-4. Launch GarageLog from the Home Screen.
-
-The app works offline after its assets have been cached. Records remain in the browser's local storage.
-
-## Important
-Opening `index.html` directly from Files is useful for previewing the UI, but PWA installation/service-worker behavior requires HTTPS hosting (localhost is also supported during development).
+Deploy by replacing the files in your existing GitHub Pages repository. Keep all files in the repository root.

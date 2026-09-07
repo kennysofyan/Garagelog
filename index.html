@@ -36,12 +36,21 @@ button,input,select{min-height:44px}
 .iosbar button{width:100%}
 @media(min-width:801px){.iosbar{display:none}}
 </style>
-</head>
+<style>
+.badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.badge.overdue{background:#f8e7e7;color:#9b3b3b}.badge.soon{background:#fbf0df;color:#a26716}.badge.ok{background:#e7f1ea;color:#2f6b45}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.mini{background:#fafafa;border:1px solid var(--line);border-radius:12px;padding:12px}.mini b{display:block;font-size:17px;margin-top:3px}
+.vehicle-note{background:#f1eaf1;border-radius:12px;padding:12px;font-size:13px;margin-top:12px}
+@media(max-width:650px){.kpi-grid{grid-template-columns:1fr 1fr}}
+</style></head>
 <body>
 <div class="app">
   <div class="top">
     <div class="brand">Garage<span>Log</span></div>
-    <select id="vehicleSelect"></select>
+    <div class="actions">
+      <select id="vehicleSelect"></select>
+      <button class="secondary" onclick="openVehicleManager()">Manage cars</button>
+    </div>
   </div>
 
   <div id="dashboard">
@@ -65,7 +74,11 @@ button,input,select{min-height:44px}
     </div>
 
     <div class="section card">
-      <div class="section-head"><h2>Data</h2></div>
+      <div class="section-head"><h2>Tools & data</h2><div class="actions">
+        <button class="secondary" onclick="openVehicleManager()">Manage cars</button>
+        <button class="secondary" onclick="openScheduleManager()">Maintenance intervals</button>
+        <button class="secondary" onclick="openCostAnalytics()">Cost summary</button>
+      </div></div>
       <div class="actions">
         <button class="secondary" onclick="exportData()">Export backup</button>
         <button class="secondary" onclick="document.getElementById('importFile').click()">Import backup</button>
@@ -129,6 +142,127 @@ function calcEconomy(){
  let arr=db.fuel.filter(x=>x.vehicleId===curVehicle().id).sort((a,b)=>a.odometer-b.odometer),out=[];
  for(let i=1;i<arr.length;i++){let d=arr[i].odometer-arr[i-1].odometer;if(d>0&&arr[i].litres>0)out.push({date:arr[i].date,kmL:d/arr[i].litres})}return out
 }
+
+function openVehicleManager(){
+  openModal("My cars",`
+    <div class="list">
+      ${db.vehicles.map(v=>`
+        <div class="row">
+          <div><b>${v.make} ${v.model}</b><div class="small">${v.year} • ${v.mileage.toLocaleString("id-ID")} km</div></div>
+          <div class="actions">
+            <button class="secondary" onclick="editVehicle('${v.id}')">Edit</button>
+            ${db.vehicles.length>1?`<button class="danger" onclick="deleteVehicle('${v.id}')">Delete</button>`:""}
+          </div>
+        </div>`).join("")}
+    </div>
+    <div style="margin-top:14px"><button class="primary" style="width:100%" onclick="openVehicleForm()">＋ Add another car</button></div>
+  `)
+}
+function openVehicleForm(id=null){
+  const v=id?db.vehicles.find(x=>x.id===id):null;
+  openModal(v?"Edit car":"Add a car",`
+    <form class="form" onsubmit="saveVehicle(event,${id?`'${id}'`:"null"})">
+      <div class="formgrid">
+        <label>Make<input id="vmake" required value="${v?.make||""}" placeholder="Honda"></label>
+        <label>Model<input id="vmodel" required value="${v?.model||""}" placeholder="BR-V"></label>
+      </div>
+      <div class="formgrid">
+        <label>Year<input id="vyear" type="number" required value="${v?.year||new Date().getFullYear()}" min="1900" max="2100"></label>
+        <label>Current odometer (km)<input id="vodometer" type="number" required value="${v?.mileage||0}" min="0"></label>
+      </div>
+      <button class="primary">Save car</button>
+    </form>
+  `)
+}
+function saveVehicle(e,id){
+  e.preventDefault();
+  const make=document.getElementById("vmake").value.trim();
+  const model=document.getElementById("vmodel").value.trim();
+  const year=+document.getElementById("vyear").value;
+  const mileage=+document.getElementById("vodometer").value;
+  if(id){
+    const v=db.vehicles.find(x=>x.id===id);
+    Object.assign(v,{make,model,year,mileage});
+  }else{
+    db.vehicles.push({id:crypto.randomUUID(),make,model,year,mileage});
+  }
+  save();
+  closeModal();
+  render();
+}
+function editVehicle(id){openVehicleForm(id)}
+function deleteVehicle(id){
+  if(db.vehicles.length<=1){alert("GarageLog needs at least one car.");return}
+  const v=db.vehicles.find(x=>x.id===id);
+  if(!confirm(`Delete ${v.make} ${v.model} and all of its fuel/service records?`))return;
+  db.vehicles=db.vehicles.filter(x=>x.id!==id);
+  db.fuel=db.fuel.filter(x=>x.vehicleId!==id);
+  db.services=db.services.filter(x=>x.vehicleId!==id);
+  save();
+  closeModal();
+}
+
+function addMonths(dateStr,months){
+  if(!dateStr)return null;
+  const d=new Date(dateStr+"T00:00:00"); d.setMonth(d.getMonth()+months);
+  return d.toISOString().slice(0,10);
+}
+function serviceStatus(s,v){
+  const kmLeft=s.nextKm!=null?s.nextKm-v.mileage:null;
+  const daysLeft=s.nextDate?Math.ceil((new Date(s.nextDate)-new Date())/86400000):null;
+  const overdue=(kmLeft!=null&&kmLeft<0)||(daysLeft!=null&&daysLeft<0);
+  const soon=!overdue&&((kmLeft!=null&&kmLeft<=2000)||(daysLeft!=null&&daysLeft<=60));
+  return {kmLeft,daysLeft,overdue,soon};
+}
+function maintenancePlan(v){
+  const records=db.services.filter(x=>x.vehicleId===v.id);
+  return db.schedules.map(sc=>{
+    const last=records.filter(x=>x.item===sc.item).sort((a,b)=>b.odometer-a.odometer)[0];
+    if(!last)return {item:sc.item,status:"unknown",last:null,nextKm:null,nextDate:null};
+    const nextKm=last.nextKm!=null?last.nextKm:(sc.intervalKm?last.odometer+sc.intervalKm:null);
+    const nextDate=last.nextDate||(sc.intervalMonths?addMonths(last.date,sc.intervalMonths):null);
+    const st=serviceStatus({nextKm,nextDate},v);
+    return {item:sc.item,status:st.overdue?"overdue":st.soon?"soon":"ok",last,nextKm,nextDate};
+  });
+}
+function openScheduleManager(){
+  openModal("Maintenance intervals",`
+    <div class="small" style="margin-bottom:12px">Generic defaults. Edit these to match your owner's manual or preferred service intervals.</div>
+    <div class="list">${db.schedules.map((s,i)=>`
+      <div class="row"><div><b>${s.item}</b><div class="small">${s.intervalKm?`Every ${s.intervalKm.toLocaleString("id-ID")} km`:""}${s.intervalMonths?` • ${s.intervalMonths} months`:""}</div></div>
+      <button class="secondary" onclick="editSchedule(${i})">Edit</button></div>`).join("")}</div>
+    <div style="margin-top:14px"><button class="primary" style="width:100%" onclick="editSchedule(null)">＋ Add maintenance item</button></div>`)
+}
+function editSchedule(i){
+  const s=i===null?null:db.schedules[i];
+  openModal(s?"Edit interval":"Add maintenance item",`
+    <form class="form" onsubmit="saveSchedule(event,${i===null?"null":i})">
+      <label>Item<input id="schitem" required value="${s?.item||""}" placeholder="Wheel alignment"></label>
+      <div class="formgrid">
+        <label>Interval (km)<input id="schkm" type="number" value="${s?.intervalKm||""}" placeholder="Optional"></label>
+        <label>Interval (months)<input id="schmo" type="number" value="${s?.intervalMonths||""}" placeholder="Optional"></label>
+      </div>
+      <button class="primary">Save interval</button>
+    </form>`)
+}
+function saveSchedule(e,i){
+  e.preventDefault();
+  const obj={item:schitem.value.trim(),intervalKm:schkm.value?+schkm.value:null,intervalMonths:schmo.value?+schmo.value:null};
+  if(i===null)db.schedules.push(obj);else db.schedules[i]=obj;
+  save();openScheduleManager();
+}
+function openCostAnalytics(){
+  const v=curVehicle(), fuels=db.fuel.filter(x=>x.vehicleId===v.id), services=db.services.filter(x=>x.vehicleId===v.id);
+  const fuelTotal=fuels.reduce((a,b)=>a+b.total,0), serviceTotal=services.reduce((a,b)=>a+b.cost,0);
+  const distance=fuels.length>1?Math.max(...fuels.map(x=>x.odometer))-Math.min(...fuels.map(x=>x.odometer)):0;
+  openModal("Vehicle cost summary",`
+    <div class="kpi-grid">
+      <div class="mini"><span class="small">Fuel</span><b>${rupiah(fuelTotal)}</b></div>
+      <div class="mini"><span class="small">Maintenance</span><b>${rupiah(serviceTotal)}</b></div>
+      <div class="mini"><span class="small">Total</span><b>${rupiah(fuelTotal+serviceTotal)}</b></div>
+    </div>
+    <div class="vehicle-note"><b>Fuel cost/km:</b> ${distance>0?rupiah(fuelTotal/distance):"—"} &nbsp; • &nbsp; <b>Records:</b> ${fuels.length} fuel / ${services.length} service</div>`)
+}
 function render(){
  let sel=document.getElementById("vehicleSelect");sel.innerHTML=db.vehicles.map(v=>`<option value="${v.id}">${v.make} ${v.model} ${v.year}</option>`).join(""); if(!db.vehicles.length)return; 
  if(!db.vehicles.some(v=>v.id===sel.value))sel.value=db.vehicles[0].id;
@@ -137,8 +271,10 @@ function render(){
  let econ=calcEconomy();document.getElementById("economy").textContent=econ.length?(econ.reduce((a,b)=>a+b.kmL,0)/econ.length).toFixed(1)+" km/L":"—";
  let month=new Date().toISOString().slice(0,7);let fuels=db.fuel.filter(x=>x.vehicleId===v.id&&x.date.startsWith(month));document.getElementById("fuelCost").textContent=rupiah(fuels.reduce((a,b)=>a+b.total,0));
  let ms=db.services.filter(x=>x.vehicleId===v.id);document.getElementById("maintCost").textContent=rupiah(ms.reduce((a,b)=>a+b.cost,0));
- let up=ms.filter(x=>x.nextKm||x.nextDate).sort((a,b)=>(a.nextKm||1e12)-(b.nextKm||1e12)).slice(0,5);
- document.getElementById("upcoming").innerHTML=up.length?up.map(x=>{let delta=x.nextKm?(x.nextKm-v.mileage):null;let cls=delta!==null?(delta<0?"bad":delta<2000?"warn":"good"):"good";return `<div class="row"><div><b>${x.item}</b><div class="small">${x.nextKm?x.nextKm.toLocaleString("id-ID")+" km":""}${x.nextDate?" • "+dateFmt(x.nextDate):""}</div></div><span class="pill ${cls}">${delta!==null?(delta<0?Math.abs(delta).toLocaleString("id-ID")+" km overdue":delta.toLocaleString("id-ID")+" km left"):"scheduled"}</span></div>`}).join(""):`<div class="empty">No maintenance records with a next-due date or mileage yet.</div>`;
+ let plan=maintenancePlan(v);
+ let up=plan.filter(x=>x.last&&(x.nextKm!=null||x.nextDate)).sort((a,b)=>(a.nextKm||1e12)-(b.nextKm||1e12)).slice(0,6);
+ document.getElementById("upcoming").innerHTML=up.length?up.map(x=>{let st=serviceStatus({nextKm:x.nextKm,nextDate:x.nextDate},v);let cls=st.overdue?"bad":st.soon?"warn":"good";let label=st.overdue?"OVERDUE":st.soon?"DUE SOON":"OK";return `<div class="row"><div><b>${x.item}</b><div class="small">Last: ${x.last.odometer.toLocaleString("id-ID")} km • ${dateFmt(x.last.date)}<br>Next: ${x.nextKm!=null?x.nextKm.toLocaleString("id-ID")+" km":""}${x.nextDate?" • "+dateFmt(x.nextDate):""}</div></div><span class="pill ${cls}">${label}</span></div>`}).join(""):`<div class="empty">Add a service record to start automatic maintenance tracking.</div>`;
+ document.getElementById("upcoming").insertAdjacentHTML("afterend",`<div class="small" style="margin-top:9px"><button class="secondary" style="padding:5px 8px;min-height:auto" onclick="openScheduleManager()">Edit maintenance intervals</button></div>`);
  let events=[...db.fuel.filter(x=>x.vehicleId===v.id).map(x=>({...x,type:"Fuel"})),...ms.map(x=>({...x,type:"Service"}))].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
  document.getElementById("activity").innerHTML=events.length?`<table><thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Odometer</th><th>Cost</th></tr></thead><tbody>${events.map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.type}</td><td>${x.type==="Fuel"?x.litres+" L":x.item}</td><td>${x.odometer.toLocaleString("id-ID")} km</td><td>${rupiah(x.total||x.cost)}</td></tr>`).join("")}</tbody></table>`:`<div class="empty">No activity yet. Add your first fuel or service record.</div>`;
  drawChart(econ)
