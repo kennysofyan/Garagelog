@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GarageLog — Car Tracker V2.3.1</title>
+<style>
+:root{--bg:#f5f5f2;--card:#fff;--text:#171717;--muted:#777;--line:#e7e7e2;--accent:#3b143b;--good:#2f6b45;--warn:#a26716;--bad:#9b3b3b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:1100px;margin:auto;padding:22px 18px 90px}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:22px}.brand{font-weight:800;font-size:22px;letter-spacing:-.5px}.brand span{color:var(--accent)}
+select,input,button{font:inherit}select,input{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;color:var(--text)}
+button{border:0;border-radius:10px;padding:11px 15px;cursor:pointer;font-weight:700}.primary{background:var(--accent);color:#fff}.secondary{background:#eee}.danger{background:#f8e7e7;color:#8d2d2d}
+h1{font-size:32px;margin:0 0 6px;letter-spacing:-1px}.sub{color:var(--muted);margin:0 0 24px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}.metric{font-size:26px;font-weight:800;margin-top:7px}.label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}.section{margin-top:20px}.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.section h2{font-size:18px;margin:0}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.list{display:grid;gap:9px}.row{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.small{font-size:13px;color:var(--muted)}.pill{padding:5px 8px;border-radius:999px;background:#eee;font-size:12px;font-weight:700}.pill.good{background:#e7f1ea;color:var(--good)}.pill.warn{background:#fbf0df;color:var(--warn)}.pill.bad{background:#f8e7e7;color:var(--bad)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.tabs{display:flex;gap:7px;margin:0 0 15px;overflow:auto}.tab{background:#eee;color:#444;white-space:nowrap}.tab.active{background:var(--accent);color:white}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line)}th{font-size:11px;text-transform:uppercase;color:var(--muted)}.empty{text-align:center;color:var(--muted);padding:28px}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;justify-content:center;padding:12px;z-index:5}.modal.open{display:flex}.sheet{background:#fff;width:min(650px,100%);border-radius:18px;padding:20px;max-height:90vh;overflow:auto}.form{display:grid;gap:12px}.form label{font-size:12px;font-weight:700;color:#555}.form input,.form select{width:100%;margin-top:5px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.close{background:#eee;padding:8px 11px}.notice{background:#f1eaf1;color:#3b143b;border-radius:12px;padding:12px;font-size:13px;margin-top:12px}
+canvas{width:100%;height:190px;background:#fafafa;border-radius:12px;border:1px solid var(--line)}
+@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}h1{font-size:27px}}
+@media(max-width:500px){.app{padding:15px 12px 80px}.grid{grid-template-columns:1fr 1fr}.card{padding:14px}.metric{font-size:21px}.formgrid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+</style>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#3b143b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="GarageLog">
+<link rel="apple-touch-icon" href="icon-180.png">
+
+<style>
+body{padding-bottom:env(safe-area-inset-bottom)}
+button,input,select{min-height:44px}
+.app{padding-top:max(18px,env(safe-area-inset-top))}
+.iosbar{position:fixed;left:0;right:0;bottom:0;z-index:4;background:#ffffffee;backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;justify-content:center}
+.iosbar .inner{width:min(650px,100%);display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.iosbar button{width:100%}
+@media(min-width:801px){.iosbar{display:none}}
+</style>
+<style>
+.badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.badge.overdue{background:#f8e7e7;color:#9b3b3b}.badge.soon{background:#fbf0df;color:#a26716}.badge.ok{background:#e7f1ea;color:#2f6b45}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.mini{background:#fafafa;border:1px solid var(--line);border-radius:12px;padding:12px}.mini b{display:block;font-size:17px;margin-top:3px}
+.vehicle-note{background:#f1eaf1;border-radius:12px;padding:12px;font-size:13px;margin-top:12px}
+@media(max-width:650px){.kpi-grid{grid-template-columns:1fr 1fr}}
+.history-actions{display:flex;gap:6px;flex-wrap:wrap}.history-actions button{padding:7px 9px;min-height:36px;font-size:12px}.history-type{font-weight:700}.history-fuel{color:#3b143b}.history-service{color:#555}@media(max-width:650px){table{font-size:12px}th,td{padding:9px 5px}.history-actions button{padding:6px 7px}}
+</style></head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand">Garage<span>Log</span></div>
+    <div class="actions">
+      <select id="vehicleSelect"></select>
+      <button class="secondary" onclick="openVehicleManager()">Manage cars</button>
+    </div>
+  </div>
+
+  <div id="dashboard">
+    <h1 id="vehicleTitle">My Car</h1>
+    <p class="sub" id="vehicleSub"></p>
+    <div class="grid">
+      <div class="card"><div class="label">Odometer</div><div class="metric" id="mileage">—</div></div>
+      <div class="card"><div class="label">Avg. fuel economy</div><div class="metric" id="economy">—</div></div>
+      <div class="card"><div class="label">Fuel this month</div><div class="metric" id="fuelCost">—</div></div>
+      <div class="card"><div class="label">Maintenance</div><div class="metric" id="maintCost">—</div></div>
+    </div>
+
+    <div class="section two">
+      <div class="card"><div class="section-head"><h2>Upcoming maintenance</h2><button class="secondary" onclick="openMaintenance()">+ Add</button></div><div id="upcoming" class="list"></div><div id="scheduleLink" class="small" style="margin-top:9px"></div></div>
+      <div class="card"><div class="section-head"><h2>Fuel economy</h2></div><canvas id="chart"></canvas><div class="small" style="margin-top:8px">Calculated from consecutive fuel entries with odometer readings.</div></div>
+    </div>
+
+    <div class="section card">
+      <div class="section-head"><h2>Recent activity</h2><div class="actions"><button class="secondary" onclick="openFuel()">+ Fuel</button><button class="primary" onclick="openMaintenance()">+ Service</button></div></div>
+      <div id="activity"></div>
+    </div>
+
+    <div class="section card">
+      <div class="section-head"><h2>Tools & data</h2><div class="actions">
+        <button class="secondary" onclick="openVehicleManager()">Manage cars</button>
+        <button class="secondary" onclick="openScheduleManager()">Maintenance intervals</button>
+        <button class="secondary" onclick="openCostAnalytics()">Cost summary</button>
+        <button class="secondary" onclick="openCloudSync()">Google backup</button>
+      </div></div>
+      <div class="actions">
+        <button class="secondary" onclick="exportData()">Export backup</button>
+        <button class="secondary" onclick="document.getElementById('importFile').click()">Import backup</button>
+        <button class="danger" onclick="resetAll()">Reset all data</button>
+        <input id="importFile" type="file" accept=".json" hidden onchange="importData(event)">
+      </div>
+      <div class="notice">Your records are stored locally on this device. V2.3.1 can also back up and restore your GarageLog data through a Google Sheet using the included Google Apps Script connector.</div>
+      <div id="cloudStatus" class="small" style="margin-top:9px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+ <div class="sheet">
+  <div class="modal-head"><h2 id="modalTitle" style="margin:0"></h2><button class="close" onclick="closeModal()">✕</button></div>
+  <div id="modalBody"></div>
+ </div>
+</div>
+
+<script>
+const KEY="garagelog_v1";
+let db=JSON.parse(localStorage.getItem(KEY)||"null")||{
+ vehicles:[{id:"v1",make:"Honda",model:"BR-V",year:2018,mileage:78000}],
+ fuel:[], services:[
+  {id:crypto.randomUUID(),vehicleId:"v1",item:"Engine oil",date:"2026-06-01",odometer:75000,cost:650000,nextKm:85000,nextDate:"2027-06-01",notes:""}
+ ], schedules:[
+  {item:"Engine oil",intervalKm:10000,intervalMonths:12},
+  {item:"Oil filter",intervalKm:10000,intervalMonths:12},
+  {item:"Air filter",intervalKm:20000,intervalMonths:24},
+  {item:"Cabin filter",intervalKm:15000,intervalMonths:12},
+  {item:"Brake fluid",intervalKm:40000,intervalMonths:24},
+  {item:"Coolant",intervalKm:40000,intervalMonths:24},
+  {item:"Spark plugs",intervalKm:40000,intervalMonths:48},
+  {item:"Transmission fluid",intervalKm:40000,intervalMonths:48},
+  {item:"Accessory belt",intervalKm:80000,intervalMonths:60}
+ ]};
+function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
+function curVehicle(){return db.vehicles.find(v=>v.id===document.getElementById("vehicleSelect").value)||db.vehicles[0]}
+function rupiah(n){return "Rp "+Math.round(n||0).toLocaleString("id-ID")}
+function dateFmt(s){return s?new Date(s+"T00:00:00").toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"—"}
+function openModal(title,body){document.getElementById("modalTitle").textContent=title;document.getElementById("modalBody").innerHTML=body;document.getElementById("modal").classList.add("open")}
+function closeModal(){document.getElementById("modal").classList.remove("open")}
+function openFuel(id=null){
+ const rec=id?db.fuel.find(x=>x.id===id):null; if(id&&!rec)return;
+ openModal(rec?"Edit fuel record":"Add fuel",`<form class="form" onsubmit="saveFuel(event,${rec?`'${rec.id}'`:"null"})">
+ <div class="formgrid"><label>Date<input id="fdate" type="date" required value="${rec?.date||new Date().toISOString().slice(0,10)}"></label><label>Odometer (km)<input id="fodo" type="number" required value="${rec?.odometer??curVehicle().mileage}"></label></div>
+ <div class="formgrid"><label>Litres<input id="flitres" type="number" step=".01" required value="${rec?.litres??""}"></label><label>Price / litre<input id="fprice" type="number" required value="${rec?.price??""}"></label></div>
+ <label>Notes<input id="fnote" value="${rec?.notes||""}" placeholder="RON, station, etc."></label>
+ <div class="actions"><button type="button" class="secondary" onclick="closeModal()">Cancel</button><button class="primary">${rec?"Save changes":"Save fuel record"}</button></div></form>`)
+}
+function saveFuel(e,id){ e.preventDefault(); const v=curVehicle(),litres=+document.getElementById("flitres").value,price=+document.getElementById("fprice").value,odometer=+document.getElementById("fodo").value; const data={date:document.getElementById("fdate").value,odometer,litres,price,total:litres*price,notes:document.getElementById("fnote").value}; if(id){const rec=db.fuel.find(x=>x.id===id);if(!rec)return;Object.assign(rec,data)}else db.fuel.push({id:crypto.randomUUID(),vehicleId:v.id,...data}); v.mileage=Math.max(v.mileage,odometer);save();closeModal() }
+function deleteFuel(id){const rec=db.fuel.find(x=>x.id===id);if(!rec)return;if(!confirm(`Delete this fuel record from ${dateFmt(rec.date)}? This cannot be undone unless you have a backup.`))return;db.fuel=db.fuel.filter(x=>x.id!==id);save()}
+function openMaintenance(id=null){
+ const rec=id?db.services.find(x=>x.id===id):null; if(id&&!rec)return; const current=rec?.item||db.schedules[0]?.item||"Other"; const options=db.schedules.map(x=>x.item).filter((x,i,a)=>a.indexOf(x)===i); if(current&&!options.includes(current))options.push(current);
+ openModal(rec?"Edit service / maintenance":"Add service / maintenance",`<form class="form" onsubmit="saveService(event,${rec?`'${rec.id}'`:"null"})">
+ <label>Item / service<select id="sitem">${options.map(x=>`<option ${x===current?"selected":""}>${x}</option>`).join("")}<option ${current==="Other"?"selected":""}>Other</option></select></label>
+ <div class="formgrid"><label>Date<input id="sdate" type="date" required value="${rec?.date||new Date().toISOString().slice(0,10)}"></label><label>Odometer (km)<input id="sodo" type="number" required value="${rec?.odometer??curVehicle().mileage}"></label></div>
+ <div class="formgrid"><label>Cost<input id="scost" type="number" value="${rec?.cost??0}"></label><label>Next due (km)<input id="snkm" type="number" placeholder="Optional" value="${rec?.nextKm??""}"></label></div>
+ <label>Next due date<input id="sndate" type="date" value="${rec?.nextDate||""}"></label><label>Notes<input id="snote" value="${rec?.notes||""}" placeholder="Brand, parts replaced, observations..."></label>
+ <div class="actions"><button type="button" class="secondary" onclick="closeModal()">Cancel</button><button class="primary">${rec?"Save changes":"Save service"}</button></div></form>`)
+}
+function saveService(e,id){e.preventDefault();const v=curVehicle(),data={item:document.getElementById("sitem").value,date:document.getElementById("sdate").value,odometer:+document.getElementById("sodo").value,cost:+document.getElementById("scost").value||0,nextKm:document.getElementById("snkm").value?+document.getElementById("snkm").value:null,nextDate:document.getElementById("sndate").value||null,notes:document.getElementById("snote").value};if(id){const rec=db.services.find(x=>x.id===id);if(!rec)return;Object.assign(rec,data)}else db.services.push({id:crypto.randomUUID(),vehicleId:v.id,...data});v.mileage=Math.max(v.mileage,data.odometer);save();closeModal()}
+function deleteService(id){const rec=db.services.find(x=>x.id===id);if(!rec)return;if(!confirm(`Delete “${rec.item}” from ${dateFmt(rec.date)}? This cannot be undone unless you have a backup.`))return;db.services=db.services.filter(x=>x.id!==id);save()}
+function calcEconomy(){
+ let arr=db.fuel.filter(x=>x.vehicleId===curVehicle().id).sort((a,b)=>a.odometer-b.odometer),out=[];
+ for(let i=1;i<arr.length;i++){let d=arr[i].odometer-arr[i-1].odometer;if(d>0&&arr[i].litres>0)out.push({date:arr[i].date,kmL:d/arr[i].litres})}return out
+}
+
+function openVehicleManager(){
+  openModal("My cars",`
+    <div class="list">
+      ${db.vehicles.map(v=>`
+        <div class="row">
+          <div><b>${v.make} ${v.model}</b><div class="small">${v.year} • ${v.mileage.toLocaleString("id-ID")} km</div></div>
+          <div class="actions">
+            <button class="secondary" onclick="editVehicle('${v.id}')">Edit</button>
+            ${db.vehicles.length>1?`<button class="danger" onclick="deleteVehicle('${v.id}')">Delete</button>`:""}
+          </div>
+        </div>`).join("")}
+    </div>
+    <div style="margin-top:14px"><button class="primary" style="width:100%" onclick="openVehicleForm()">＋ Add another car</button></div>
+  `)
+}
+function openVehicleForm(id=null){
+  const v=id?db.vehicles.find(x=>x.id===id):null;
+  openModal(v?"Edit car":"Add a car",`
+    <form class="form" onsubmit="saveVehicle(event,${id?`'${id}'`:"null"})">
+      <div class="formgrid">
+        <label>Make<input id="vmake" required value="${v?.make||""}" placeholder="Honda"></label>
+        <label>Model<input id="vmodel" required value="${v?.model||""}" placeholder="BR-V"></label>
+      </div>
+      <div class="formgrid">
+        <label>Year<input id="vyear" type="number" required value="${v?.year||new Date().getFullYear()}" min="1900" max="2100"></label>
+        <label>Current odometer (km)<input id="vodometer" type="number" required value="${v?.mileage||0}" min="0"></label>
+      </div>
+      <button class="primary">Save car</button>
+    </form>
+  `)
+}
+function saveVehicle(e,id){
+  e.preventDefault();
+  const make=document.getElementById("vmake").value.trim();
+  const model=document.getElementById("vmodel").value.trim();
+  const year=+document.getElementById("vyear").value;
+  const mileage=+document.getElementById("vodometer").value;
+  if(id){
+    const v=db.vehicles.find(x=>x.id===id);
+    Object.assign(v,{make,model,year,mileage});
+  }else{
+    db.vehicles.push({id:crypto.randomUUID(),make,model,year,mileage});
+  }
+  save();
+  closeModal();
+  render();
+}
+function editVehicle(id){openVehicleForm(id)}
+function deleteVehicle(id){
+  if(db.vehicles.length<=1){alert("GarageLog needs at least one car.");return}
+  const v=db.vehicles.find(x=>x.id===id);
+  if(!confirm(`Delete ${v.make} ${v.model} and all of its fuel/service records?`))return;
+  db.vehicles=db.vehicles.filter(x=>x.id!==id);
+  db.fuel=db.fuel.filter(x=>x.vehicleId!==id);
+  db.services=db.services.filter(x=>x.vehicleId!==id);
+  save();
+  closeModal();
+}
+
+function addMonths(dateStr,months){
+  if(!dateStr)return null;
+  const d=new Date(dateStr+"T00:00:00"); d.setMonth(d.getMonth()+months);
+  return d.toISOString().slice(0,10);
+}
+function serviceStatus(s,v){
+  const kmLeft=s.nextKm!=null?s.nextKm-v.mileage:null;
+  const daysLeft=s.nextDate?Math.ceil((new Date(s.nextDate)-new Date())/86400000):null;
+  const overdue=(kmLeft!=null&&kmLeft<0)||(daysLeft!=null&&daysLeft<0);
+  const soon=!overdue&&((kmLeft!=null&&kmLeft<=2000)||(daysLeft!=null&&daysLeft<=60));
+  return {kmLeft,daysLeft,overdue,soon};
+}
+function maintenancePlan(v){
+  const records=db.services.filter(x=>x.vehicleId===v.id);
+  return db.schedules.map(sc=>{
+    const last=records.filter(x=>x.item===sc.item).sort((a,b)=>b.odometer-a.odometer)[0];
+    if(!last)return {item:sc.item,status:"unknown",last:null,nextKm:null,nextDate:null};
+    const nextKm=last.nextKm!=null?last.nextKm:(sc.intervalKm?last.odometer+sc.intervalKm:null);
+    const nextDate=last.nextDate||(sc.intervalMonths?addMonths(last.date,sc.intervalMonths):null);
+    const st=serviceStatus({nextKm,nextDate},v);
+    return {item:sc.item,status:st.overdue?"overdue":st.soon?"soon":"ok",last,nextKm,nextDate};
+  });
+}
+function openScheduleManager(){
+  openModal("Maintenance intervals",`
+    <div class="small" style="margin-bottom:12px">Generic defaults. Edit these to match your owner's manual or preferred service intervals.</div>
+    <div class="list">${db.schedules.map((s,i)=>`
+      <div class="row"><div><b>${s.item}</b><div class="small">${s.intervalKm?`Every ${s.intervalKm.toLocaleString("id-ID")} km`:""}${s.intervalMonths?` • ${s.intervalMonths} months`:""}</div></div>
+      <button class="secondary" onclick="editSchedule(${i})">Edit</button></div>`).join("")}</div>
+    <div style="margin-top:14px"><button class="primary" style="width:100%" onclick="editSchedule(null)">＋ Add maintenance item</button></div>`)
+}
+function editSchedule(i){
+  const s=i===null?null:db.schedules[i];
+  openModal(s?"Edit interval":"Add maintenance item",`
+    <form class="form" onsubmit="saveSchedule(event,${i===null?"null":i})">
+      <label>Item<input id="schitem" required value="${s?.item||""}" placeholder="Wheel alignment"></label>
+      <div class="formgrid">
+        <label>Interval (km)<input id="schkm" type="number" value="${s?.intervalKm||""}" placeholder="Optional"></label>
+        <label>Interval (months)<input id="schmo" type="number" value="${s?.intervalMonths||""}" placeholder="Optional"></label>
+      </div>
+      <button class="primary">Save interval</button>
+    </form>`)
+}
+function saveSchedule(e,i){
+  e.preventDefault();
+  const obj={item:schitem.value.trim(),intervalKm:schkm.value?+schkm.value:null,intervalMonths:schmo.value?+schmo.value:null};
+  if(i===null)db.schedules.push(obj);else db.schedules[i]=obj;
+  save();openScheduleManager();
+}
+function openCostAnalytics(){
+  const v=curVehicle(), fuels=db.fuel.filter(x=>x.vehicleId===v.id), services=db.services.filter(x=>x.vehicleId===v.id);
+  const fuelTotal=fuels.reduce((a,b)=>a+b.total,0), serviceTotal=services.reduce((a,b)=>a+b.cost,0);
+  const distance=fuels.length>1?Math.max(...fuels.map(x=>x.odometer))-Math.min(...fuels.map(x=>x.odometer)):0;
+  openModal("Vehicle cost summary",`
+    <div class="kpi-grid">
+      <div class="mini"><span class="small">Fuel</span><b>${rupiah(fuelTotal)}</b></div>
+      <div class="mini"><span class="small">Maintenance</span><b>${rupiah(serviceTotal)}</b></div>
+      <div class="mini"><span class="small">Total</span><b>${rupiah(fuelTotal+serviceTotal)}</b></div>
+    </div>
+    <div class="vehicle-note"><b>Fuel cost/km:</b> ${distance>0?rupiah(fuelTotal/distance):"—"} &nbsp; • &nbsp; <b>Records:</b> ${fuels.length} fuel / ${services.length} service</div>`)
+}
+function render(){
+ let sel=document.getElementById("vehicleSelect");
+ const selectedId=sel.value;
+ sel.innerHTML=db.vehicles.map(v=>`<option value="${v.id}">${v.make} ${v.model} ${v.year}</option>`).join("");
+ if(!db.vehicles.length)return;
+ sel.value=db.vehicles.some(v=>v.id===selectedId)?selectedId:db.vehicles[0].id;
+ let v=curVehicle();document.getElementById("vehicleTitle").textContent=`${v.make} ${v.model}`;document.getElementById("vehicleSub").textContent=`${v.year} • Personal vehicle`;
+ document.getElementById("mileage").textContent=v.mileage.toLocaleString("id-ID")+" km";
+ let econ=calcEconomy();document.getElementById("economy").textContent=econ.length?(econ.reduce((a,b)=>a+b.kmL,0)/econ.length).toFixed(1)+" km/L":"—";
+ let month=new Date().toISOString().slice(0,7);let fuels=db.fuel.filter(x=>x.vehicleId===v.id&&x.date.startsWith(month));document.getElementById("fuelCost").textContent=rupiah(fuels.reduce((a,b)=>a+b.total,0));
+ let ms=db.services.filter(x=>x.vehicleId===v.id);document.getElementById("maintCost").textContent=rupiah(ms.reduce((a,b)=>a+b.cost,0));
+ let plan=maintenancePlan(v);
+ let up=plan.filter(x=>x.last&&(x.nextKm!=null||x.nextDate)).sort((a,b)=>(a.nextKm||1e12)-(b.nextKm||1e12)).slice(0,6);
+ document.getElementById("upcoming").innerHTML=up.length?up.map(x=>{let st=serviceStatus({nextKm:x.nextKm,nextDate:x.nextDate},v);let cls=st.overdue?"bad":st.soon?"warn":"good";let label=st.overdue?"OVERDUE":st.soon?"DUE SOON":"OK";return `<div class="row"><div><b>${x.item}</b><div class="small">Last: ${x.last.odometer.toLocaleString("id-ID")} km • ${dateFmt(x.last.date)}<br>Next: ${x.nextKm!=null?x.nextKm.toLocaleString("id-ID")+" km":""}${x.nextDate?" • "+dateFmt(x.nextDate):""}</div></div><span class="pill ${cls}">${label}</span></div>`}).join(""):`<div class="empty">Add a service record to start automatic maintenance tracking.</div>`;
+ document.getElementById("scheduleLink").innerHTML=`<button class="secondary" style="padding:5px 8px;min-height:auto" onclick="openScheduleManager()">Edit maintenance intervals</button>`;
+ const activity=[...fuels.map(x=>({type:"Fuel",date:x.date,odometer:x.odometer,description:`${x.litres.toFixed(2)} L @ ${rupiah(x.price)}/L`,amount:x.total,id:x.id})),...ms.map(x=>({type:"Service",date:x.date,odometer:x.odometer,description:x.item,amount:x.cost,id:x.id}))].sort((a,b)=>new Date(b.date)-new Date(a.date)||b.odometer-a.odometer).slice(0,12);
+ document.getElementById("activity").innerHTML=activity.length?`<div style="overflow:auto"><table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Odometer</th><th>Amount</th><th>Actions</th></tr></thead><tbody>${activity.map(x=>`<tr><td>${dateFmt(x.date)}</td><td><span class="history-type ${x.type==="Fuel"?"history-fuel":"history-service"}">${x.type}</span></td><td>${x.description}</td><td>${x.odometer.toLocaleString("id-ID")} km</td><td>${rupiah(x.amount)}</td><td><div class="history-actions"><button class="secondary" onclick="${x.type==="Fuel"?`openFuel('${x.id}')`:`openMaintenance('${x.id}')`}">Edit</button><button class="danger" onclick="${x.type==="Fuel"?`deleteFuel('${x.id}')`:`deleteService('${x.id}')`}">Delete</button></div></td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">No fuel or service records yet.</div>`;
+ drawChart(econ)
+}
+function drawChart(data){
+ let c=document.getElementById("chart"),ctx=c.getContext("2d"),dpr=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*dpr;c.height=h*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+ if(!data.length){ctx.fillStyle="#888";ctx.font="13px system-ui";ctx.fillText("Add two fuel records to see a trend.",20,30);return}
+ let vals=data.slice(-10).map(x=>x.kmL),min=Math.min(...vals)*.95,max=Math.max(...vals)*1.05;let pad=28;ctx.strokeStyle="#ddd";ctx.lineWidth=1;
+ for(let i=0;i<4;i++){let y=pad+(h-pad*1.5)*i/3;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-12,y);ctx.stroke()}
+ ctx.strokeStyle="#3b143b";ctx.lineWidth=2;ctx.beginPath();vals.forEach((v,i)=>{let x=pad+(w-pad-18)*(i/(vals.length-1||1)),y=pad+(h-pad*1.5)*(1-(v-min)/(max-min||1));i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+ ctx.fillStyle="#555";ctx.font="11px system-ui";ctx.fillText(max.toFixed(1)+" km/L",4,13);ctx.fillText(min.toFixed(1),4,h-10)
+}
+
+const CLOUD_KEY="garagelog_cloud_v233";
+let cloud=JSON.parse(localStorage.getItem(CLOUD_KEY)||"null")||{url:"",key:"",lastSync:null,lastBackupId:null};
+function saveCloudSettings(){localStorage.setItem(CLOUD_KEY,JSON.stringify(cloud));updateCloudStatus()}
+function updateCloudStatus(){
+ const el=document.getElementById("cloudStatus"); if(!el)return;
+ if(!cloud.url){el.textContent="Google backup: Not configured.";return}
+ el.textContent=`Google backup: Configured${cloud.lastSync?" • Last verified "+new Date(cloud.lastSync).toLocaleString("en-GB"):" • Not tested yet"}`;
+}
+function openCloudSync(){
+ openModal("Google Sheet backup",`
+  <div class="notice"><b>Cloud backup:</b> GarageLog continues to use local storage for normal operation. Google Sheets is a separate cloud backup. Use <b>Test connection</b> before your first backup.</div>
+  <form class="form" onsubmit="saveCloudConfig(event)">
+   <label>Google Apps Script Web App URL<input id="cloudurl" type="url" required value="${cloud.url||""}" placeholder="https://script.google.com/macros/s/.../exec"></label>
+   <label>Sync key<input id="cloudkey" type="password" required value="${cloud.key||""}" placeholder="The same key used in Apps Script"></label>
+   <div class="small">The Web App URL and sync key are stored only in this browser. Keep the sync key private.</div>
+   <div class="actions"><button class="secondary" type="button" onclick="closeModal()">Cancel</button><button class="primary">Save connection</button></div>
+  </form>
+  <div class="actions" style="margin-top:12px"><button class="secondary" onclick="cloudTest()">Test connection</button><button class="primary" onclick="cloudBackup()">Back up to Google</button><button class="secondary" onclick="cloudRestore()">Restore from Google</button></div>
+  <div class="small" style="margin-top:10px">Restore replaces the local GarageLog data on this device. Export a JSON backup first if you are unsure.</div>
+ `)
+}
+function saveCloudConfig(e){e.preventDefault();cloud.url=document.getElementById("cloudurl").value.trim().replace(/\/$/,"");cloud.key=document.getElementById("cloudkey").value;cloud.lastSync=null;saveCloudSettings();closeModal();alert("Google backup connection saved. Now use Test connection.")}
+function cloudJsonp(action,extra,timeoutMs=12000){
+ return new Promise((resolve,reject)=>{
+  const cb="garageLogCloud_"+action+"_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+  let done=false;
+  const cleanup=()=>{done=true;try{delete window[cb]}catch{};script.remove()};
+  window[cb]=(resp)=>{if(done)return;cleanup();resolve(resp)};
+  const script=document.createElement("script");
+  const params=new URLSearchParams({action,key:cloud.key,callback:cb,_:Date.now()});
+  if(extra)Object.entries(extra).forEach(([k,v])=>params.set(k,String(v)));
+  script.src=cloud.url+"?"+params.toString();
+  script.onerror=()=>{if(done)return;cleanup();reject(new Error("Could not reach Google Apps Script."))};
+  document.body.appendChild(script);
+  setTimeout(()=>{if(done)return;cleanup();reject(new Error("Google Apps Script timed out."))},timeoutMs);
+ });
+}
+async function cloudTest(){
+ if(!cloud.url||!cloud.key){openCloudSync();alert("Enter the Web App URL and sync key first.");return}
+ try{
+  const r=await cloudJsonp("ping");
+  if(!r||r.ok!==true)throw new Error(r&&r.error?r.error:"Connection failed");
+  cloud.lastSync=new Date().toISOString();saveCloudSettings();alert("Connection successful. GarageLog can reach your Google Sheet.");
+ }catch(err){alert("Connection failed: "+err.message+"\n\nCheck the Web App URL, sync key, deployment permissions, and Spreadsheet ID in Apps Script.")}
+}
+function utf8ToBase64(str){
+ const bytes=new TextEncoder().encode(str); let binary=""; const chunk=0x8000;
+ for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+ return btoa(binary);
+}
+async function cloudBackup(){
+ if(!cloud.url||!cloud.key){openCloudSync();alert("Set up the Google backup connection first.");return}
+ const backupId=(crypto&&crypto.randomUUID)?crypto.randomUUID():("backup-"+Date.now()+"-"+Math.random().toString(36).slice(2));
+ try{
+  const encoded=utf8ToBase64(JSON.stringify(db));
+  const r=await cloudJsonp("save",{backupId,data:encoded},20000);
+  if(!r||r.ok!==true||r.backupId!==backupId)throw new Error(r&&r.error?r.error:"Google did not confirm the backup");
+  cloud.lastSync=new Date().toISOString();cloud.lastBackupId=backupId;saveCloudSettings();
+  alert("Backup confirmed. Your GarageLog data is now in Google Sheets.");
+ }catch(err){alert("Backup failed: "+err.message+"\n\nYour local GarageLog data is unchanged. Check the Apps Script deployment and try Test connection.")}
+}
+async function cloudRestore(){
+ if(!cloud.url||!cloud.key){openCloudSync();alert("Set up the Google backup connection first.");return}
+ if(!confirm("Restore the cloud copy and replace the GarageLog data on this device? Export a JSON backup first if you are unsure."))return;
+ try{
+  const resp=await cloudJsonp("load");
+  if(!resp||resp.ok!==true||!resp.data)throw new Error(resp&&resp.error?resp.error:"No valid backup found");
+  if(!resp.data.vehicles||!resp.data.fuel||!resp.data.services)throw new Error("The cloud backup is not a valid GarageLog backup.");
+  db=resp.data;localStorage.setItem(KEY,JSON.stringify(db));cloud.lastSync=new Date().toISOString();cloud.lastBackupId=resp.backupId||null;saveCloudSettings();render();closeModal();alert("Cloud backup restored successfully.");
+ }catch(err){alert("Restore failed: "+err.message)}
+}
+function exportData(){let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="garagelog-backup-"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(a.href)}
+function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.vehicles||!x.fuel||!x.services)throw Error();db=x;save();alert("Backup imported.");}catch{alert("That file is not a valid GarageLog backup.")}};r.readAsText(f)}
+function resetAll(){if(confirm("Delete all GarageLog data? This cannot be undone unless you have a backup.")){localStorage.removeItem(KEY);location.reload()}}
+document.getElementById("vehicleSelect").addEventListener("change",render);render();updateCloudStatus();
+</script>
+
+<div class="iosbar"><div class="inner">
+<button class="secondary" onclick="openFuel()">＋ Fuel</button>
+<button class="primary" onclick="openMaintenance()">＋ Service</button>
+</div></div>
+<script>
+if ("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body></html>
